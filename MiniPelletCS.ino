@@ -72,7 +72,7 @@ void loop() {
   analogWrite(heaterPin3, constrain((int)output3, 0, 255));
 
   // Compute PID for motor
-  motorInput = motorSetpoint; // Assume motor responds linearly for simplicity
+  motorInput = motorSetpoint; 
   motorOutput = computePID(motorSetpoint, motorInput, motorKp, motorKi, motorKd, motorIntegral, motorPreviousError);
   
   //// Adaptive Control
