@@ -76,10 +76,10 @@ void loop() {
   motorOutput = computePID(motorSetpoint, motorInput, motorKp, motorKi, motorKd, motorIntegral, motorPreviousError);
   
   //// Adaptive Control
-  //output1 = computeAdaptiveControl(setpoint1, input1, integral1, previousError1, adaptiveGain1, kp1, learningRate);
-  //output2 = computeAdaptiveControl(setpoint2, input2, integral2, previousError2, adaptiveGain2, kp2, learningRate);
-  //output3 = computeAdaptiveControl(setpoint3, input3, integral3, previousError3, adaptiveGain3, kp3, learningRate);
-  //motorOutput = computeAdaptiveControl(motorSetpoint, motorInput, motorIntegral, motorPreviousError, adaptiveMotorGain, motorKp, learningRate);
+  //output1 = test_AdaptiveControl(setpoint1, input1, integral1, previousError1, adaptiveGain1, kp1, learningRate);
+  //output2 = test_AdaptiveControl(setpoint2, input2, integral2, previousError2, adaptiveGain2, kp2, learningRate);
+  //output3 = test_AdaptiveControl(setpoint3, input3, integral3, previousError3, adaptiveGain3, kp3, learningRate);
+  //motorOutput = test_AdaptiveControl(motorSetpoint, motorInput, motorIntegral, motorPreviousError, adaptiveMotorGain, motorKp, learningRate);
 
   // Apply PWM signal to motor driver
   analogWrite(motorPWMPin, constrain((int)motorOutput, 0, 255));
