@@ -34,6 +34,11 @@ double motorSetpoint = 0, motorInput = 0, motorOutput = 0;
 double motorKp = 1.0, motorKi = 0.1, motorKd = 0.05;
 double motorIntegral = 0, motorPreviousError = 0;
 
+////Adaptive Control
+//double adaptiveGain1 = 1.0, adaptiveGain2 = 1.0, adaptiveGain3 = 1.0, adaptiveMotorGain = 1.0;
+//double learningRate = 0.01; // Adjust learning rate based on system characteristics
+
+
 void setup() {
   Serial.begin(115200);
 
@@ -69,6 +74,12 @@ void loop() {
   // Compute PID for motor
   motorInput = motorSetpoint; // Assume motor responds linearly for simplicity
   motorOutput = computePID(motorSetpoint, motorInput, motorKp, motorKi, motorKd, motorIntegral, motorPreviousError);
+  
+  //// Adaptive Control
+  //output1 = computeAdaptiveControl(setpoint1, input1, integral1, previousError1, adaptiveGain1, kp1, learningRate);
+  //output2 = computeAdaptiveControl(setpoint2, input2, integral2, previousError2, adaptiveGain2, kp2, learningRate);
+  //output3 = computeAdaptiveControl(setpoint3, input3, integral3, previousError3, adaptiveGain3, kp3, learningRate);
+  //motorOutput = computeAdaptiveControl(motorSetpoint, motorInput, motorIntegral, motorPreviousError, adaptiveMotorGain, motorKp, learningRate);
 
   // Apply PWM signal to motor driver
   analogWrite(motorPWMPin, constrain((int)motorOutput, 0, 255));
@@ -85,6 +96,22 @@ double computePID(double setpoint, double input, double kp, double ki, double kd
   double derivative = error - previousError;
   previousError = error;
   return (kp * error) + (ki * integral) + (kd * derivative);
+}
+
+double test_AdaptiveControl(double setpoint, double input, double &integral, double &previousError, double &adaptiveGain, double baseGain, double learningRate) {
+  double error = setpoint - input;
+  
+  // Adjust the gain adaptively based on the error magnitude
+  adaptiveGain += learningRate * error * error;
+  if (adaptiveGain < 0.01) adaptiveGain = 0.01; // Prevent too low or negative gain
+
+  // Compute control signal
+  integral += error; // Integral term
+  double derivative = error - previousError; // Derivative term
+  previousError = error;
+
+  // Adaptive control output
+  return (adaptiveGain * baseGain) * error + adaptiveGain * integral + adaptiveGain * derivative;
 }
 
 void parseIncomingData(String data) {
