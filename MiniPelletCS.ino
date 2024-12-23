@@ -1,112 +1,114 @@
-#include <PID_v1.h>
-#include <AccelStepper.h>
-#include <max6675.h>
+#include <Wire.h>
+#include <Adafruit_MAX31855.h>
 
-// Pin definizione
-#define THERMOCOUPLE_1_DO 4
-#define THERMOCOUPLE_1_CS 5
-#define THERMOCOUPLE_1_CLK 6
-#define THERMOCOUPLE_2_DO 7
-#define THERMOCOUPLE_2_CS 8
-#define THERMOCOUPLE_2_CLK 9
-#define THERMOCOUPLE_3_DO 10
-#define THERMOCOUPLE_3_CS 11
-#define THERMOCOUPLE_3_CLK 12
-#define HEATER_1_PIN 3
-#define HEATER_2_PIN 5
-#define HEATER_3_PIN 6
-#define MOTOR_STEP_PIN 2
-#define MOTOR_DIR_PIN 3
+// Pin definitions
+const int thermoDO1 = 4, thermoCS1 = 5, thermoCLK1 = 6;
+const int thermoDO2 = 7, thermoCS2 = 8, thermoCLK2 = 9;
+const int thermoDO3 = 10, thermoCS3 = 11, thermoCLK3 = 12;
+const int heaterPin1 = 3, heaterPin2 = 4, heaterPin3 = 5;
+const int motorPWMPin = 6;
 
-// Termocoppie
-MAX6675 thermocouple1(THERMOCOUPLE_1_CLK, THERMOCOUPLE_1_CS, THERMOCOUPLE_1_DO);
-MAX6675 thermocouple2(THERMOCOUPLE_2_CLK, THERMOCOUPLE_2_CS, THERMOCOUPLE_2_DO);
-MAX6675 thermocouple3(THERMOCOUPLE_3_CLK, THERMOCOUPLE_3_CS, THERMOCOUPLE_3_DO);
+// Thermocouple objects
+Adafruit_MAX31855 thermocouple1(thermoCLK1, thermoCS1, thermoDO1);
+Adafruit_MAX31855 thermocouple2(thermoCLK2, thermoCS2, thermoDO2);
+Adafruit_MAX31855 thermocouple3(thermoCLK3, thermoCS3, thermoDO3);
 
-// Variabili di controllo
-double setpointTemp1 = 0, setpointTemp2 = 0, setpointTemp3 = 0;
-double currentTemp1 = 0, currentTemp2 = 0, currentTemp3 = 0;
-double outputPWM1 = 0, outputPWM2 = 0, outputPWM3 = 0;
+// PID parameters and variables
+// Temperature 1
+double setpoint1 = 0, input1 = 0, output1 = 0;
+double kp1 = 2.0, ki1 = 5.0, kd1 = 1.0;
+double integral1 = 0, previousError1 = 0;
 
-double setpointSpeed = 0;
-double currentSpeed = 0;
-double outputSpeedPWM = 0;
+// Temperature 2
+double setpoint2 = 0, input2 = 0, output2 = 0;
+double kp2 = 2.0, ki2 = 5.0, kd2 = 1.0;
+double integral2 = 0, previousError2 = 0;
 
-// PID Controller
-PID pidTemp1(&currentTemp1, &outputPWM1, &setpointTemp1, 2, 5, 1, DIRECT);
-PID pidTemp2(&currentTemp2, &outputPWM2, &setpointTemp2, 2, 5, 1, DIRECT);
-PID pidTemp3(&currentTemp3, &outputPWM3, &setpointTemp3, 2, 5, 1, DIRECT);
-PID pidSpeed(&currentSpeed, &outputSpeedPWM, &setpointSpeed, 1, 0.1, 0.05, DIRECT);
+// Temperature 3
+double setpoint3 = 0, input3 = 0, output3 = 0;
+double kp3 = 2.0, ki3 = 5.0, kd3 = 1.0;
+double integral3 = 0, previousError3 = 0;
 
-// Motore stepper
-AccelStepper stepper(AccelStepper::DRIVER, MOTOR_STEP_PIN, MOTOR_DIR_PIN);
-
-// Intervallo di aggiornamento
-unsigned long lastTime = 0;
-unsigned long updateInterval = 100; // ms
+// Motor speed
+double motorSetpoint = 0, motorInput = 0, motorOutput = 0;
+double motorKp = 1.0, motorKi = 0.1, motorKd = 0.05;
+double motorIntegral = 0, motorPreviousError = 0;
 
 void setup() {
-  // Impostazione seriale
-  Serial.begin(9600);
+  Serial.begin(115200);
 
-  // Impostazione PID
-  pidTemp1.SetMode(AUTOMATIC);
-  pidTemp2.SetMode(AUTOMATIC);
-  pidTemp3.SetMode(AUTOMATIC);
-  pidSpeed.SetMode(AUTOMATIC);
-
-  // Impostazione heater
-  pinMode(HEATER_1_PIN, OUTPUT);
-  pinMode(HEATER_2_PIN, OUTPUT);
-  pinMode(HEATER_3_PIN, OUTPUT);
-
-  // Impostazione stepper
-  stepper.setMaxSpeed(1000);
-  stepper.setAcceleration(500);
+  // Configure heater pins
+  pinMode(heaterPin1, OUTPUT);
+  pinMode(heaterPin2, OUTPUT);
+  pinMode(heaterPin3, OUTPUT);
+  pinMode(motorPWMPin, OUTPUT);
 }
 
 void loop() {
-  // Lettura setpoint dal PC
+  // Read incoming data from the PC
   if (Serial.available() > 0) {
-    String input = Serial.readStringUntil('\n');
-    parseSetpoints(input);
+    String data = Serial.readStringUntil('\n');
+    parseIncomingData(data);
   }
 
-  // Lettura temperature
-  currentTemp1 = thermocouple1.readCelsius();
-  currentTemp2 = thermocouple2.readCelsius();
-  currentTemp3 = thermocouple3.readCelsius();
+  // Read temperatures from thermocouples
+  input1 = thermocouple1.readCelsius();
+  input2 = thermocouple2.readCelsius();
+  input3 = thermocouple3.readCelsius();
 
-  // Esecuzione PID
-  pidTemp1.Compute();
-  pidTemp2.Compute();
-  pidTemp3.Compute();
-  pidSpeed.Compute();
+  // Compute PID for heaters
+  output1 = computePID(setpoint1, input1, kp1, ki1, kd1, integral1, previousError1);
+  output2 = computePID(setpoint2, input2, kp2, ki2, kd2, integral2, previousError2);
+  output3 = computePID(setpoint3, input3, kp3, ki3, kd3, integral3, previousError3);
 
-  // Applicazione dei risultati PID
-  analogWrite(HEATER_1_PIN, constrain(outputPWM1, 0, 255));
-  analogWrite(HEATER_2_PIN, constrain(outputPWM2, 0, 255));
-  analogWrite(HEATER_3_PIN, constrain(outputPWM3, 0, 255));
+  // Apply PWM signals to heaters
+  analogWrite(heaterPin1, constrain((int)output1, 0, 255));
+  analogWrite(heaterPin2, constrain((int)output2, 0, 255));
+  analogWrite(heaterPin3, constrain((int)output3, 0, 255));
 
-  // Controllo motore stepper
-  stepper.setSpeed(outputSpeedPWM);
-  stepper.runSpeed();
+  // Compute PID for motor
+  motorInput = motorSetpoint; // Assume motor responds linearly for simplicity
+  motorOutput = computePID(motorSetpoint, motorInput, motorKp, motorKi, motorKd, motorIntegral, motorPreviousError);
 
-  // Ritardo aggiornamento
-  delay(updateInterval);
+  // Apply PWM signal to motor driver
+  analogWrite(motorPWMPin, constrain((int)motorOutput, 0, 255));
+
+  // Optional: Send feedback to PC
+  sendFeedbackToPC();
+
+  delay(100); // Loop delay
 }
 
-// Parsing dei setpoint
-void parseSetpoints(String input) {
-  char delimiter = ',';
-  int idx1 = input.indexOf(delimiter);
-  int idx2 = input.indexOf(delimiter, idx1 + 1);
-  int idx3 = input.indexOf(delimiter, idx2 + 1);
+double computePID(double setpoint, double input, double kp, double ki, double kd, double &integral, double &previousError) {
+  double error = setpoint - input;
+  integral += error;
+  double derivative = error - previousError;
+  previousError = error;
+  return (kp * error) + (ki * integral) + (kd * derivative);
+}
 
-  if (idx1 > 0 && idx2 > 0 && idx3 > 0) {
-    setpointTemp1 = input.substring(0, idx1).toDouble();
-    setpointTemp2 = input.substring(idx1 + 1, idx2).toDouble();
-    setpointTemp3 = input.substring(idx2 + 1, idx3).toDouble();
-    setpointSpeed = input.substring(idx3 + 1).toDouble();
+void parseIncomingData(String data) {
+  // Parse the incoming data for setpoints
+  int idx1 = data.indexOf(',');
+  int idx2 = data.indexOf(',', idx1 + 1);
+  int idx3 = data.indexOf(',', idx2 + 1);
+
+  if (idx1 > 0 && idx2 > idx1 && idx3 > idx2) {
+    setpoint1 = data.substring(0, idx1).toDouble();
+    setpoint2 = data.substring(idx1 + 1, idx2).toDouble();
+    setpoint3 = data.substring(idx2 + 1, idx3).toDouble();
+    motorSetpoint = data.substring(idx3 + 1).toDouble();
   }
 }
+
+void sendFeedbackToPC() {
+  Serial.print("T1:");
+  Serial.print(input1);
+  Serial.print(", T2:");
+  Serial.print(input2);
+  Serial.print(", T3:");
+  Serial.print(input3);
+  Serial.print(", MotorSpeed:");
+  Serial.println(motorInput);
+}
+
